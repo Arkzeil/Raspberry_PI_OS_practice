@@ -33,6 +33,7 @@ SECTIONS
 
     /* '__text_start' and '__text_end' can be used in the kernel source and the linker will then place the correct addresses into the binary. */
  
+    /* read only data; it is where global constants are placed. */
     __rodata_start = .;
     .rodata :
     {
