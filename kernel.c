@@ -1,3 +1,4 @@
+//main ref: https://jsandler18.github.io/explanations/kernel_c.html
 //set up the hardware for basic I/O(UART?)
 
 #include <stddef.h>
@@ -55,7 +56,7 @@ enum
     UART0_TDR    = (UART0_BASE + 0x8C),
 };
 
-// set up the UART hardware
+// set up the UART hardware, this practice isn't actually using GPIO pins
 void uart_init()
 {
     // disables all aspects of the UART hardware. UART0_CR is the UART’s Control Register.
@@ -65,7 +66,7 @@ void uart_init()
     mmio_write(GPPUD, 0x00000000);
     delay(150);
 
-    // marks which pins should be disabled
+    // marks which pins should be disabled(for those also having value 0 in GPPUD)
     mmio_write(GPPUDCLK0, (1 << 14) | (1 << 15));
     delay(150);
 
@@ -75,25 +76,41 @@ void uart_init()
     // sets all flags in the Interrupt Clear Register. This has the effect of clearing all pending interrupts from the UART hardware.
     mmio_write(UART0_ICR, 0x7FF);
 
+    // IBDD : Integer Baud rate divisor 
+    // sets the baud rate(bits/sec) of the connection, ref:https://juejin.cn/post/6977611730784354334
+    // BAUD = CLOCK_SPEED/(16*USART_DIV) -> USART_DIV = UART_CLOCK_SPEED/(16 * DESIRED_BAUD), which DESIRED_BAUD=115200 here
+    // tutorial didn't give the clock speed, 115200*16*1.67 = 3078144 is the clock speed?
     mmio_write(UART0_IBRD, 1);
+    // FBRD : Fractional Baud rate divisor 
+    // FBRD = INTEGER( (fraction_part * 64) + 0.5 ) , (.67 * 64) + .5 = 40
     mmio_write(UART0_FBRD, 40);
 
+    // Line control register. Setting bit 4 means that the UART hardware will hold data in an 8 item deep FIFO, instead of a 1 item deep register. 
+    // Setting 5 and 6 to 1 means that data sent or received will have 8-bit long words.
     mmio_write(UART0_LCRH, (1 << 4) | (1 << 5) | (1 << 6));
 
+    // disables all interrupts from the UART by writing a one to the relevent bits of the Interrupt Mask Set Clear register.
     mmio_write(UART0_IMSC, (1 << 1) | (1 << 4) | (1 << 5) | (1 << 6) |
             (1 << 7) | (1 << 8) | (1 << 9) | (1 << 10));
 
+    // writes bits 0, 8, and 9 to the control register. Bit 0 enables the UART hardware, bit 8 enables the ability to receive data, and bit 9 enables the ability to transmit data.
     mmio_write(UART0_CR, (1 << 0) | (1 << 8) | (1 << 9));
 }
 
+// doc p.165 : https://www.raspberrypi.org/app/uploads/2012/02/BCM2835-ARM-Peripherals.pdf
+// FR:flag reggister(tells us whether the read FIFO has any data for us to read, and whether the write FIFO can accept any data.) 
+// DR:data register(where data is both read from and written to)
+// following 2 functions enable reading and writing characters to and from the UART.
 void uart_putc(unsigned char c)
 {
+    // get value to know if  Receive is busy
     while ( mmio_read(UART0_FR) & (1 << 5) ) { }
     mmio_write(UART0_DR, c);
 }
 
 unsigned char uart_getc()
 {
+    // wait until TX fifo is not empty
     while ( mmio_read(UART0_FR) & (1 << 4) ) { }
     return mmio_read(UART0_DR);
 }
@@ -104,6 +121,10 @@ void uart_puts(const char* str)
         uart_putc((unsigned char)str[i]);
 }
 
+
+// this is where control is transfered to from boot.S
+// print out any character you type. This is where we will add calls to many other initialization functions.
+// In ARM, the convention is that the first three parameters of a function are passed through registers r0, r1 and r2.
 void kernel_main(uint32_t r0, uint32_t r1, uint32_t atags)
 {
     (void) r0;
@@ -119,5 +140,7 @@ void kernel_main(uint32_t r0, uint32_t r1, uint32_t atags)
     }
 }
 
-
+// When the bootloader loads our kernel, it also places some information about the hardware and the command line used to run the kernel in memory.
+// This information is called atags, and a pointer to the atags is placed in r2 just before boot.S runs. 
+// So for our kernel_main, r0 and r1 are parameters to the function simply by convention, but we don’t care about those. r2 contains the atags pointer, so the third argument to kernel_main is the atags pointer.
 
