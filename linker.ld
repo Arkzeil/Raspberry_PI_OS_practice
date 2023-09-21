@@ -63,3 +63,10 @@ SECTIONS
 
     __end = .;
 }
+
+/*
+.text is where executable code goes.
+.rodata is read only data; it is where global constants are placed.
+.data is where global variables that are initialized at compile time are placed.
+.bss is where uninitialized global variables are placed.
+*/

@@ -6,7 +6,7 @@
 
 _start:
     @Move to ARM register from coprocessor(CP15, for storage manipulation): MRC{cond} coproc, opcode1, Rd, CRn, CRm{, opcode2}  @for cp15 register, op1 should be 0 
-    @this line should be putting the CPI ID into r1 register
+    @this line should be putting the CPU ID into r1 register
     mrc p15, #0, r1, c0, c0, #5 
     @keep the one CPU marked 3, shut down others
     and r1, r1, #3
