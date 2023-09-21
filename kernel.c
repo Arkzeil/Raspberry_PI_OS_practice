@@ -17,8 +17,9 @@ static inline uint32_t mmio_read(uint32_t reg){
 // giving the hardware some time to respond to any writes we may have made.(This is an imprecise way)
 static inline void delay(int32_t count){
     // https://hackmd.io/@happy-kernel-learning/S1jo0eB2L
+    // https://evshary.com/2018/05/20/C-Inline-Assembly/
     // "%=" Outputs a number that is unique to each instance of the asm statement in the entire compilation. This option is useful when creating local labels and referring to them multiple times in a single template that generates multiple assembler instructions
-    asm volatile("__delay_%=: subs %[count], %[count], #1; bne __delay_%=\n" // count subtract 1 then jump to delay if it's not 0
+    asm volatile("__delay_%=: subs %[count], %[count], #1; bne __delay_%=\n"        // count subtract 1 then jump to delay if it's not 0
                 : "=r"(count) // output operand, store value to count after subtration
                 : [count]"0"(count) // input operand, [a symbolic name]constraint(c expression)
                 : "cc");    // clobbered register, used to notiyfy compiler that the register may changed. cc means assmebly codes mofified the flag register
