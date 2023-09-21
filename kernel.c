@@ -7,7 +7,7 @@
 static inline void mmio_write(uint32_t reg, uint32_t data){ //MMIO(Memory Mapped IO) : all interactions with hardware on the Raspberry Pi occur using MMIO.
     //vollatile: get the variable from memory directly, instead from register(which may resulted from compiler optimization)
     //see: https://ithelp.ithome.com.tw/articles/10308388
-    return *(volatile uint32_t*)reg = data; 
+    *(volatile uint32_t*)reg = data; 
 }
 
 static inline uint32_t mmio_read(uint32_t reg){
@@ -19,7 +19,7 @@ static inline void delay(int32_t count){
     // https://hackmd.io/@happy-kernel-learning/S1jo0eB2L
     // https://evshary.com/2018/05/20/C-Inline-Assembly/
     // "%=" Outputs a number that is unique to each instance of the asm statement in the entire compilation. This option is useful when creating local labels and referring to them multiple times in a single template that generates multiple assembler instructions
-    asm volatile("__delay_%=: subs %[count], %[count], #1; bne __delay_%=\n"        // count subtract 1 then jump to delay if it's not 0
+    asm volatile("__delay_%=: subs %[count], %[count], #1; bne __delay_%=\n" // count subtract 1 then jump to delay if it's not 0
                 : "=r"(count) // output operand, store value to count after subtration
                 : [count]"0"(count) // input operand, [a symbolic name]constraint(c expression)
                 : "cc");    // clobbered register, used to notiyfy compiler that the register may changed. cc means assmebly codes mofified the flag register
@@ -144,4 +144,3 @@ void kernel_main(uint32_t r0, uint32_t r1, uint32_t atags)
 // When the bootloader loads our kernel, it also places some information about the hardware and the command line used to run the kernel in memory.
 // This information is called atags, and a pointer to the atags is placed in r2 just before boot.S runs. 
 // So for our kernel_main, r0 and r1 are parameters to the function simply by convention, but we don’t care about those. r2 contains the atags pointer, so the third argument to kernel_main is the atags pointer.
-

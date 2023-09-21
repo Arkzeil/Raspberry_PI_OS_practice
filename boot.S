@@ -1,6 +1,6 @@
 @ref : https://jsandler18.github.io/explanations/boot_S.html
 
-.section ".text.book"   @where this code belongs in the compiled binary.
+.section ".text.boot"   @where this code belongs in the compiled binary.
 
 .global _start          @The name that's visible from outside of the assembly file
 
