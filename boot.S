@@ -36,6 +36,7 @@ _start:
 2:
     cmp r4, r9
     @equal to BCC? Branch On Lower(unsigned)
+    @looping until all uninitialized global variables are initialized to 0
     blo 1b
     @ loads the address of the C function called kernel_main into a register and jumps to that location
     ldr r3, =kernel_main
