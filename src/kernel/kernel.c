@@ -126,6 +126,12 @@ void uart_puts(const char* str)
 // this is where control is transfered to from boot.S
 // print out any character you type. This is where we will add calls to many other initialization functions.
 // In ARM, the convention is that the first three parameters of a function are passed through registers r0, r1 and r2.
+
+// Atags is a list of information about certain aspects of the hardware. This list is created by the bootloader before our kernel is loaded. 
+// The bootloader places it at address 0x100, passes that address to the kernel through register r2
+// The Atags can tell us how large the memory is, where the bootloader put a ramdisk, what is the serial number of the board, and the command line passed to the kernel via cmdline.txt
+// An Atag consists of a size (in 4 byte words), a tag identifier, and tag specific information. The list of Atags always starts with the CORE tag, with identifier 0x54410001, and ends with a NONE tag, with identifier 0.
+// The tags are concatenated together, so the next tag in the list can be found by adding the number of bytes specified by the size to the current Atag’s pointer.
 void kernel_main(uint32_t r0, uint32_t r1, uint32_t atags)
 {
     (void) r0;
