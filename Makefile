@@ -7,8 +7,10 @@ CC = ./gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcc
 ifeq ($(RASPI_MODEL), 1)
 	CPU = arm1176jzf.s
 	DIRECTIVES = -D MODEL_1
+	ARCHDIR = model1
 else
     CPU = cortex-a7
+	ARCHDIR = model2
 endif
 
 #variables for comiler and linker
@@ -21,7 +23,7 @@ KER_SRC = ./src/kernel
 KER_HEAD = ./include
 COMMON_SRC = ./src/common
 OBJ_DIR = objects
-KERSOURCES = $(wildcard $(KER_SRC)/*.c)
+KERSOURCES += $(wildcard $(KER_SRC)/$(ARCHDIR)/*.c)
 COMMONSOURCES = $(wildcard $(COMMON_SRC)/*.c)
 ASMSOURCES = $(wildcard $(KER_SRC)/*.S)
 # $(patsubst <pattern>, <replacement>, <text>) which would replace last matched in "%...", seperated by space
@@ -40,7 +42,7 @@ build: $(OBJECTS) $(HEADERS)
 
 # '$(@D)' is the directory of '$@'(target file)
 # https://jasonblog.github.io/note/gunmake/makefile_zhong_de_,_%5E,__,__fu_hao.html
-$(OBJ_DIR)/%.o: $(KER_SRC)/%.c # target : dependency
+$(OBJ_DIR)/%.o: $(KER_SRC)/$(ARCHDIR)/%.c # target : dependency
 	mkdir -p $(@D) # make folder if not existed
 	$(CC) $(CFLAGS) -I$(KER_SRC) -I$(KER_HEAD) -c $< -o $@ $(CSRCFLAGS) # -I allows source files to access include files by #include <kernel/header.h> instead of #include <../../include/kernel/header/h>
 
