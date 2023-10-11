@@ -4,6 +4,25 @@
 #include <stdint.h>
 #include <stddef.h>
 
+/*** Heap Stuff******/
+static void heap_init(uint32_t heap_start);
+/**
+ * impliment kmalloc as a linked list of allocated segments.
+ * Segments should be 4 byte aligned.
+ * Use best fit algorithm to find an allocation
+ */
+typedef struct heap_segment{
+    struct heap_segment * next;
+    struct heap_segment * prev;
+    uint32_t is_allocated;
+    uint32_t segment_size;  // Includes this header
+} heap_segment_t;
+
+static heap_segment_t *heap_segment_list_head;
+
+/*** End Heap Stuff****/
+
+
 // reserve a large swath of memory just after the kernel image for an array of page metadata.
 // We can get this address by using the symbol __end that we declared in the linker script. 
 extern uint8_t __end;
@@ -14,7 +33,7 @@ static uint32_t num_pages;
 DEFINE_LIST(page);
 IMPLEMENT_LIST(page);
 
-static page_t * all_pages_array;
+static page_t *all_pages_array;
 page_list_t free_pages;
 
 /**
@@ -23,7 +42,7 @@ page_list_t free_pages;
  * Use best fit algorithm to find an allocation
  */
 
-void mem_init(atag_t * atags) {
+void mem_init(atag_t *atags) {
     uint32_t mem_size,  page_array_len, kernel_pages, i;
 
     // Get the total number of pages
@@ -31,7 +50,7 @@ void mem_init(atag_t * atags) {
     num_pages = mem_size / PAGE_SIZE;
 
     // Allocate space for all those pages' metadata.  Start this block just after the kernel image is finished
-    page_array_len = sizeof(page_t) * num_pages;
+    page_array_len = sizeof(page_t) *num_pages;
     all_pages_array = (page_t *)&__end;
     // set allocated page space to all 0
     bzero(all_pages_array, page_array_len);
@@ -55,9 +74,9 @@ void mem_init(atag_t * atags) {
 
 }
 
-void * alloc_page(void) {
-    page_t * page;
-    void * page_mem;
+void *alloc_page(void) {
+    page_t *page;
+    void *page_mem;
 
 
     if (size_page_list(&free_pages) == 0)
@@ -77,8 +96,8 @@ void * alloc_page(void) {
     return page_mem;
 }
 
-void free_page(void * ptr) {
-    page_t * page;
+void free_page(void *ptr) {
+    page_t *page;
 
     // Get page metadata from the physical address
     page = all_pages_array + ((uint32_t)ptr / PAGE_SIZE);
@@ -86,4 +105,74 @@ void free_page(void * ptr) {
     // Mark the page as free
     page->flags.allocated = 0;
     append_page_list(&free_pages, page);
+}
+
+static void heap_init(uint32_t heap_start) {
+   heap_segment_list_head = (heap_segment_t *) heap_start;
+   bzero(heap_segment_list_head, sizeof(heap_segment_t));
+   heap_segment_list_head->segment_size = KERNEL_HEAP_SIZE;
+}
+ 
+void *kmalloc(uint32_t bytes) {
+    heap_segment_t *curr, *best = NULL;
+    int diff, best_diff = 0x7fffffff; // Max signed int
+
+    // Add the header to the number of bytes we need and make the size 4 byte aligned
+    bytes += sizeof(heap_segment_t);
+    bytes += bytes % 16 ? 16 - (bytes % 16) : 0; //16 is probably because the struct heap_segment is 16 bytes
+
+    // Find the allocation that is closest in size to this request
+    for (curr = heap_segment_list_head; curr != NULL; curr = curr->next) {
+        diff = curr->segment_size - bytes; // traverse every heap segment(with different size) to get the smallest difference between segment size and requsted size
+        if (!curr->is_allocated && diff < best_diff && diff >= 0) { 
+            best = curr;
+            best_diff = diff;
+        }
+    }
+
+    // There must be no free memory right now :(
+    if (best == NULL)
+        return NULL;
+
+    // If the best difference we could come up with was large, split up this segment into two.
+    // Since our segment headers are rather large, the criterion for splitting the segment is that
+    // when split, the segment not being requested should be twice a header size
+    if (best_diff > (int)(2 * sizeof(heap_segment_t))) {
+        bzero(((void*)(best)) + bytes, sizeof(heap_segment_t));
+        curr = best->next;
+        best->next = ((void*)(best)) + bytes;
+        best->next->next = curr;
+        best->next->prev = best;
+        best->next->segment_size = best->segment_size - bytes;
+        best->segment_size = bytes;
+    }
+
+    best->is_allocated = 1;
+
+    // return a pointer to the memory directly after the header
+    return best + 1;
+}
+
+void kfree(void *ptr) {
+    heap_segment_t * seg;
+
+    if (!ptr)
+        return;
+
+    seg = ptr - sizeof(heap_segment_t); // to get the first address of the heap_segment_t header
+    seg->is_allocated = 0;
+
+    // try to coalesce segements to the left
+    while(seg->prev != NULL && !seg->prev->is_allocated) {
+        seg->prev->next = seg->next;
+        seg->next->prev = seg->prev;
+        seg->prev->segment_size += seg->segment_size;
+        seg = seg->prev;
+    }
+    // try to coalesce segments to the right
+    while(seg->next != NULL && !seg->next->is_allocated) {
+        seg->next->next->prev = seg;
+        seg->next = seg->next->next;
+        seg->segment_size += seg->next->segment_size;
+    }
 }

@@ -5,6 +5,8 @@
 #define MEM_H
 
 #define PAGE_SIZE 4096
+// heap size = 1MB
+#define KERNEL_HEAP_SIZE (1024*1024)
 
 // ':'is bit field initialization, the following struct would only occupy 1+1+30=32bits=4bytes
 // still, it need aligned. So it would occupy 8 bytes if another 1 bits added
@@ -22,8 +24,11 @@ typedef struct page {
 } page_t;
 
 
-void mem_init(atag_t * atags);
+void mem_init(atag_t *atags);
 
-void * alloc_page(void);
-void free_page(void * ptr);
+void *alloc_page(void);
+void free_page(void *ptr);
+
+void *kmalloc(uint32_t bytes);
+void kfree(void *ptr);
 #endif
